@@ -675,3 +675,4 @@ while running:
 
 pygame.quit()
 sys.exit()
+nico y steph son novios
