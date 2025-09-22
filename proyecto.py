@@ -16,6 +16,7 @@ BLACK = (0,0,0)
 font = pygame.font.SysFont(None, 36)
 bigfont = pygame.font.SysFont(None, 72)
 
+
 # ---------------- ESPACIOS PARA IMÁGENES (TRY/EXCEPT) ----------------
 try:
     fondo_img = pygame.image.load("assets/images/fondo.jpg").convert()
@@ -675,3 +676,4 @@ while running:
 
 pygame.quit()
 sys.exit()
+hola chavales
