@@ -459,7 +459,7 @@ while running:
                     # toggle music
                     music_on = not music_on
                     if music_on:
-                        try:
+                        try: #Holiiiiii
                             pygame.mixer.music.unpause()
                         except:
                             pass
