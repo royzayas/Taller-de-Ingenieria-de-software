@@ -51,7 +51,7 @@ except:
     tigre_img = None
 
 try:
-    arbusto_img = pygame.image.load("assets/images/arbusto.png").convert_alpha()
+    arbusto_img = pygame.image.load("assets/images/arbusto.jpg").convert_alpha()
     arbusto_img = pygame.transform.scale(arbusto_img, (60, 60))
 except:
     arbusto_img = None
