@@ -101,6 +101,36 @@ class Button:
 
     def is_clicked(self, pos):
         return self.rect.collidepoint(pos)
+class Slider:
+    def __init__(self, x, y, w, h, min_val=0.0, max_val=1.0, start_val=1.0):
+        self.rect = pygame.Rect(x, y, w, h)
+        self.min_val = min_val
+        self.max_val = max_val
+        self.value = start_val
+        self.dragging = False
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.rect.collidepoint(event.pos):
+                self.dragging = True
+        elif event.type == pygame.MOUSEBUTTONUP:
+            self.dragging = False
+        elif event.type == pygame.MOUSEMOTION:
+            if self.dragging:
+                # calcula el porcentaje de la barra
+                rel_x = max(self.rect.x, min(event.pos[0], self.rect.x + self.rect.w))
+                pct = (rel_x - self.rect.x) / self.rect.w
+                self.value = self.min_val + pct * (self.max_val - self.min_val)
+
+    def draw(self, surf):
+        # barra base
+        pygame.draw.rect(surf, (100,100,100), self.rect)
+        # barra activa
+        filled_w = int(self.rect.w * ((self.value - self.min_val)/(self.max_val-self.min_val)))
+        pygame.draw.rect(surf, (0,200,0), (self.rect.x, self.rect.y, filled_w, self.rect.h))
+        # circulito del slider
+        knob_x = self.rect.x + filled_w
+        pygame.draw.circle(surf, (255,0,0), (knob_x, self.rect.centery), self.rect.h//2 + 2)
 
 class Cell:
     def __init__(self, col, row, x, y, size):
@@ -541,4 +571,3 @@ while running:
 
 pygame.quit()
 sys.exit()
-hpña callao
