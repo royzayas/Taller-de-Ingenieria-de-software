@@ -1,4 +1,3 @@
-# proyecto.py  -- Versión corregida y ordenada
 import pygame, sys, random, math, os
 
 pygame.init()
