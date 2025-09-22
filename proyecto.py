@@ -674,4 +674,9 @@ while running:
     pygame.display.flip()
 
 pygame.quit()
+<<<<<<< HEAD
 sys.exit() zorra oeoeoe
+=======
+sys.exit()
+nico y steph son novios
+>>>>>>> 885de7b75196f6e84bd1425debbdee53dc42914c
