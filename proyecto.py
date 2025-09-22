@@ -674,4 +674,4 @@ while running:
     pygame.display.flip()
 
 pygame.quit()
-sys.exit()
+sys.exit() zorra oeoeoe
