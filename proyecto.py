@@ -55,6 +55,13 @@ try:
 except:
     arbusto_img = None
 
+# Bandera (opcional)
+try:
+    bandera_img = pygame.image.load("assets/images/bandera.png").convert_alpha()
+    # no la escalamos permanentemente; se escalará al dibujar según la casilla
+except:
+    bandera_img = None
+
 # ---------------- ESPACIOS PARA SONIDOS (TRY/EXCEPT) ----------------
 try:
     pygame.mixer.init()
@@ -112,21 +119,61 @@ class Cell:
         self.is_tigre = False
         self.revealed = False
         self.neighbors = 0
+        self.flagged = False   # <-- agregado para banderas
 
     def draw(self, surf):
         rect = pygame.Rect(self.x, self.y, self.size, self.size)
         if not self.revealed:
-            if arbusto_img:
-                arb = pygame.transform.scale(arbusto_img, (self.size, self.size))
-                surf.blit(arb, (self.x, self.y))
+            # Si está marcada con bandera, mostrar bandera encima del arbusto/verde
+            if self.flagged:
+                # dibuja arbusto o verde como fondo
+                if arbusto_img:
+                    try:
+                        arb = pygame.transform.scale(arbusto_img, (self.size, self.size))
+                        surf.blit(arb, (self.x, self.y))
+                    except:
+                        pygame.draw.rect(surf, GREEN, rect)
+                else:
+                    pygame.draw.rect(surf, GREEN, rect)
+                # si existe imagen de bandera, usarla; si no, triángulo rojo
+                if bandera_img:
+                    try:
+                        flag_img = pygame.transform.scale(bandera_img, (int(self.size*0.6), int(self.size*0.6)))
+                        # centrar la bandera en la casilla
+                        fx = self.x + (self.size - flag_img.get_width())//2
+                        fy = self.y + (self.size - flag_img.get_height())//2
+                        surf.blit(flag_img, (fx, fy))
+                    except:
+                        # fallback triángulo
+                        p1 = (self.x + int(self.size * 0.2), self.y + int(self.size * 0.8))
+                        p2 = (self.x + int(self.size * 0.2), self.y + int(self.size * 0.2))
+                        p3 = (self.x + int(self.size * 0.7), self.y + int(self.size * 0.5))
+                        pygame.draw.polygon(surf, (220,20,60), [p1, p2, p3])
+                else:
+                    p1 = (self.x + int(self.size * 0.2), self.y + int(self.size * 0.8))
+                    p2 = (self.x + int(self.size * 0.2), self.y + int(self.size * 0.2))
+                    p3 = (self.x + int(self.size * 0.7), self.y + int(self.size * 0.5))
+                    pygame.draw.polygon(surf, (220,20,60), [p1, p2, p3])
             else:
-                pygame.draw.rect(surf, GREEN, rect)
+                # casilla sin revelar y sin bandera: dibujar arbusto o verde
+                if arbusto_img:
+                    try:
+                        arb = pygame.transform.scale(arbusto_img, (self.size, self.size))
+                        surf.blit(arb, (self.x, self.y))
+                    except:
+                        pygame.draw.rect(surf, GREEN, rect)
+                else:
+                    pygame.draw.rect(surf, GREEN, rect)
             pygame.draw.rect(surf, BLACK, rect, 1)
         else:
+            # casilla revelada
             if self.is_tigre:
                 if tigre_img:
-                    tig = pygame.transform.scale(tigre_img, (self.size, self.size))
-                    surf.blit(tig, (self.x, self.y))
+                    try:
+                        tig = pygame.transform.scale(tigre_img, (self.size, self.size))
+                        surf.blit(tig, (self.x, self.y))
+                    except:
+                        pygame.draw.rect(surf, RED, rect)
                 else:
                     pygame.draw.rect(surf, RED, rect)
             else:
@@ -270,6 +317,9 @@ def create_grid(rows_in, cols_in, csize, tigres):
 def reveal_cell_by_index(i, j):
     global player, modal_active, modal_type
     cell = grid[i][j]
+    # NO revelar si hay bandera
+    if hasattr(cell, "flagged") and cell.flagged:
+        return
     if cell.revealed:
         return
     cell.revealed = True
@@ -565,10 +615,18 @@ while running:
                         row = (my - 140) // cell_size
                         if 0 <= row < rows and 0 <= col < cols:
                             cell = grid[row][col]
-                            cx = cell.x + cell.size//2
-                            cy = cell.y + cell.size//2
-                            player.set_target(cx, cy)
-                            reveal_cell_by_index(row, col)
+                            # click izquierdo: mover+revelar
+                            if event.button == 1:
+                                cx = cell.x + cell.size//2
+                                cy = cell.y + cell.size//2
+                                player.set_target(cx, cy)
+                                reveal_cell_by_index(row, col)
+                            # click derecho: bandera (si no está revelada)
+                            elif event.button == 3:
+                                if not cell.revealed:
+                                    cell.flagged = not cell.flagged
+                                    if click_sound:
+                                        click_sound.play()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_r:
                         state = MENU
