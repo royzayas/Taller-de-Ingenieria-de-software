@@ -16,7 +16,6 @@ BLACK = (0,0,0)
 font = pygame.font.SysFont(None, 36)
 bigfont = pygame.font.SysFont(None, 72)
 
-
 # ---------------- ESPACIOS PARA IMÁGENES (TRY/EXCEPT) ----------------
 try:
     fondo_img = pygame.image.load("assets/images/fondo.jpg").convert()
@@ -84,7 +83,7 @@ def load_sound(path):
 
 machete_sound  = load_sound("assets/sounds/machete.mp3")
 tigre_sound    = load_sound("assets/sounds/rugido_tigre.mp3")
-click_sound    = load_sound("assets/sounds/click.mp3")
+# click_sound removed
 gameover_sound = load_sound("assets/sounds/gameover.mp3")
 victory_sound  = load_sound("assets/sounds/victory.mp3")
 
@@ -324,8 +323,7 @@ def reveal_cell_by_index(i, j):
     if cell.revealed:
         return
     cell.revealed = True
-    if click_sound:
-        click_sound.play()
+    # click sound removed: no playback here
 
     if cell.is_tigre:
         player.lives -= 1
@@ -347,7 +345,6 @@ def reveal_cell_by_index(i, j):
                     if 0 <= ni < len(grid) and 0 <= nj < len(grid[0]):
                         if not grid[ni][nj].revealed:
                             reveal_cell_by_index(ni, nj)
-
     # check win
     won = True
     for row in grid:
@@ -453,9 +450,9 @@ def options_menu():
         ("Volumen Música", 250, music_slider),
         ("Volumen Machete", 300, machete_slider),
         ("Volumen Tigre", 350, tigre_slider),
-        ("Volumen Click", 400, click_slider),
-        ("Volumen Game Over", 450, gameover_slider),
-        ("Volumen Victoria", 500, victory_slider)
+        # click volume removed
+        ("Volumen Game Over", 400, gameover_slider),
+        ("Volumen Victoria", 450, victory_slider)
     ]
 
     for text, y, slider in labels:
@@ -538,9 +535,9 @@ easy_btn = med_btn = hard_btn = None
 music_slider    = Slider(300, 250, value=1.0)
 machete_slider  = Slider(300, 300, value=1.0)
 tigre_slider    = Slider(300, 350, value=1.0)
-click_slider    = Slider(300, 400, value=1.0)
-gameover_slider = Slider(300, 450, value=1.0)
-victory_slider  = Slider(300, 500, value=1.0)
+# click_slider removed
+gameover_slider = Slider(300, 400, value=1.0)
+victory_slider  = Slider(300, 450, value=1.0)
 
 # ---------------- BUCLE PRINCIPAL ----------------
 while running:
@@ -567,7 +564,7 @@ while running:
             music_slider.handle_event(event)
             machete_slider.handle_event(event)
             tigre_slider.handle_event(event)
-            click_slider.handle_event(event)
+            # click_slider removed
             gameover_slider.handle_event(event)
             victory_slider.handle_event(event)
 
@@ -591,7 +588,7 @@ while running:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx,my = event.pos
                 if easy_btn and easy_btn.is_clicked((mx,my)):
-                    start_game_with(8,8,10); state = GAME
+                    start_game_with(8,8,1); state = GAME
                 elif med_btn and med_btn.is_clicked((mx,my)):
                     start_game_with(12,12,20); state = GAME
                 elif hard_btn and hard_btn.is_clicked((mx,my)):
@@ -626,8 +623,7 @@ while running:
                             elif event.button == 3:
                                 if not cell.revealed:
                                     cell.flagged = not cell.flagged
-                                    if click_sound:
-                                        click_sound.play()
+                                    # click sound removed
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_r:
                         state = MENU
@@ -643,7 +639,7 @@ while running:
         pass
     if machete_sound: machete_sound.set_volume(machete_slider.value)
     if tigre_sound: tigre_sound.set_volume(tigre_slider.value)
-    if click_sound: click_sound.set_volume(click_slider.value)
+    # click_sound volume removed
     if gameover_sound: gameover_sound.set_volume(gameover_slider.value)
     if victory_sound: victory_sound.set_volume(victory_slider.value)
 
