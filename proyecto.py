@@ -43,6 +43,9 @@ for i in range(1, 3):
     except:
         personaje_frames.append(None)
 
+# lista limpia de frames válidos (sin None)
+personaje_frames_valid = [f for f in personaje_frames if f is not None]
+
 try:
     tigre_img = pygame.image.load("assets/images/tigre.png").convert_alpha()
     tigre_img = pygame.transform.scale(tigre_img, (60, 60))
@@ -187,11 +190,19 @@ class Player:
         self.x = x
         self.y = y
         self.target = None
-        self.speed = 500.0
+        # ---------------- AJUSTE: velocidad más lenta para movimiento más suave ----------------
+        self.speed = 220.0   # <-- antes 500.0, ahora más lento
         self.frame_idx = 0
+        self.anim_timer = 0.0
+        # ---------------- AJUSTE: animación más pausada ----------------
+        self.anim_interval = 0.28  # cambiar frame cada 0.28s -> animación más lenta y visible
         self.lives = 3
 
+        # umbral mínimo de movimiento para considerar "que se está moviendo"
+        self.min_movement_to_animate = 2.0  # píxeles; evita parpadeos cuando está casi en destino
+
     def update(self, dt):
+        moving = False
         if self.target:
             tx, ty = self.target
             dx = tx - self.x
@@ -201,6 +212,9 @@ class Player:
                 self.x, self.y = tx, ty
                 self.target = None
             else:
+                # solo consideramos movimiento si la distancia real supera el umbral
+                if dist > self.min_movement_to_animate:
+                    moving = True
                 step = self.speed * dt
                 if step >= dist:
                     self.x, self.y = tx, ty
@@ -209,16 +223,31 @@ class Player:
                     self.x += (dx/dist)*step
                     self.y += (dy/dist)*step
 
+        # Avanzar animación solo si se está moviendo
+        if moving and personaje_frames_valid:
+            self.anim_timer += dt
+            if self.anim_timer >= self.anim_interval:
+                self.anim_timer -= self.anim_interval
+                # avanzar frame (circular)
+                self.frame_idx = (self.frame_idx + 1) % len(personaje_frames_valid)
+        else:
+            # si no se mueve, mantener el primer frame (reset)
+            self.anim_timer = 0.0
+            self.frame_idx = 0
+
     def draw(self, surf):
         global cell_size
         frame = None
-        if personaje_frames and personaje_frames[0]:
-            frame = personaje_frames[self.frame_idx % len(personaje_frames)]
-            if frame:
-                size = max(8, int(cell_size * 0.8))
-                img = pygame.transform.scale(frame, (size, size))
-                rect = img.get_rect(center=(int(self.x), int(self.y)))
-                surf.blit(img, rect)
+        if personaje_frames_valid:
+            # asegurarse de no dividir por cero
+            idx = self.frame_idx % len(personaje_frames_valid)
+            frame = personaje_frames_valid[idx]
+        if frame:
+            # scale according to current cell_size (so character scales with grid)
+            size = max(8, int(cell_size * 0.8))
+            img = pygame.transform.scale(frame, (size, size))
+            rect = img.get_rect(center=(int(self.x), int(self.y)))
+            surf.blit(img, rect)
         else:
             pygame.draw.circle(surf, (255,200,0), (int(self.x), int(self.y)), max(8, int(cell_size*0.3)))
 
