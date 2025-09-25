@@ -15,7 +15,6 @@ BLACK = (0,0,0)
 
 font = pygame.font.SysFont(None, 36)
 bigfont = pygame.font.SysFont(None, 72)
-
 # ---------------- ESPACIOS PARA IMÁGENES (TRY/EXCEPT) ----------------
 try:
     fondo_img = pygame.image.load("assets/images/fondo.jpg").convert()
@@ -43,7 +42,6 @@ for i in range(1, 3):
     except:
         personaje_frames.append(None)
 
-# lista limpia de frames válidos (sin None)
 personaje_frames_valid = [f for f in personaje_frames if f is not None]
 
 try:
@@ -478,7 +476,6 @@ def options_menu():
         ("Volumen Música", 250, music_slider),
         ("Volumen Machete", 300, machete_slider),
         ("Volumen Tigre", 350, tigre_slider),
-        # click volume removed
         ("Volumen Game Over", 400, gameover_slider),
         ("Volumen Victoria", 450, victory_slider)
     ]
