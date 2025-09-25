@@ -83,7 +83,6 @@ def load_sound(path):
 
 machete_sound  = load_sound("assets/sounds/machete.mp3")
 tigre_sound    = load_sound("assets/sounds/rugido_tigre.mp3")
-# click_sound removed
 gameover_sound = load_sound("assets/sounds/gameover.mp3")
 victory_sound  = load_sound("assets/sounds/victory.mp3")
 
@@ -588,7 +587,7 @@ while running:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx,my = event.pos
                 if easy_btn and easy_btn.is_clicked((mx,my)):
-                    start_game_with(8,8,1); state = GAME
+                    start_game_with(8,8,10); state = GAME
                 elif med_btn and med_btn.is_clicked((mx,my)):
                     start_game_with(12,12,20); state = GAME
                 elif hard_btn and hard_btn.is_clicked((mx,my)):
