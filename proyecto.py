@@ -24,7 +24,7 @@ except:
 
 try:
     titulo_img = pygame.image.load("assets/images/titulo.png").convert_alpha()
-    titulo_img = pygame.transform.scale(titulo_img, (500, 150))
+    titulo_img = pygame.transform.scale(titulo_img, (400, 150))
 except:
     titulo_img = None
 
@@ -59,7 +59,7 @@ except:
 # Bandera (opcional)
 try:
     bandera_img = pygame.image.load("assets/images/bandera.png").convert_alpha()
-    # no la escalamos permanentemente; se escalará al dibujar según la casilla
+
 except:
     bandera_img = None
 
@@ -617,7 +617,7 @@ while running:
                 elif med_btn and med_btn.is_clicked((mx,my)):
                     start_game_with(12,12,20); state = GAME
                 elif hard_btn and hard_btn.is_clicked((mx,my)):
-                    start_game_with(16,16,40); state = GAME
+                    start_game_with(16,16,30); state = GAME
                 elif back_btn and back_btn.is_clicked((mx,my)):
                     state = MENU
 
