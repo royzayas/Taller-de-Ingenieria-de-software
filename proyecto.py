@@ -2,8 +2,11 @@ import pygame, sys, random, math, os
 
 pygame.init()
 
+# Tamaño del menú / valor original
+MENU_SCREEN = (900, 700)
+
 SCREEN_MAX_W, SCREEN_MAX_H = 1366, 768
-SCREEN_WIDTH, SCREEN_HEIGHT = 900, 700
+SCREEN_WIDTH, SCREEN_HEIGHT = MENU_SCREEN  # empezamos con el tamaño de menú
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Selva Mortal")
 
@@ -81,6 +84,29 @@ machete_sound  = load_sound("assets/sounds/machete.mp3")
 tigre_sound    = load_sound("assets/sounds/rugido_tigre.mp3")
 gameover_sound = load_sound("assets/sounds/gameover.mp3")
 victory_sound  = load_sound("assets/sounds/victory.mp3")
+
+scores = []
+max_saved_scores = 200
+
+difficulty_points_map = {
+    8: 100,
+    12: 250,
+    16: 500
+}
+max_lives = 3
+
+name_input_active = False
+name_input_str = ""
+pending_score = 0
+pending_result = None
+pending_difficulty_label = ""
+pending_difficulty_rows = 8
+
+MENU, OPTIONS, DIFFICULTY, GAME, SCORES = 0,1,2,3,4
+state = MENU
+
+# bandera para saber si ya cambiamos el tamaño al modo 'game'
+game_resized = False
 
 class Button:
     def __init__(self, text, center, size=(200,70)):
@@ -261,11 +287,10 @@ modal_active = False
 modal_type = None
 modal_buttons = []
 
-MENU, OPTIONS, DIFFICULTY, GAME = 0,1,2,3
-state = MENU
-
 player = Player(SCREEN_WIDTH//2, 100)
 music_on = True
+
+current_rows = 8
 
 def compute_layout_for(rows_in, cols_in):
     title_height = 180
@@ -314,25 +339,53 @@ def create_grid(rows_in, cols_in, csize, tigres):
                             cnt += 1
             grid[i][j].neighbors = cnt
 
+def save_score_and_prepare_name(result, pts, difficulty_label, difficulty_rows):
+    global name_input_active, name_input_str, pending_score, pending_result, pending_difficulty_label, pending_difficulty_rows
+    pending_score = pts
+    pending_result = result
+    pending_difficulty_label = difficulty_label
+    pending_difficulty_rows = difficulty_rows
+    name_input_str = ""
+    name_input_active = True
+
+def award_score_entry(name, pts, result, difficulty_label, difficulty_rows):
+    global scores
+    entry = {
+        'name': name,
+        'score': int(pts),
+        'result': result,
+        'difficulty': difficulty_label,
+        'difficulty_rows': difficulty_rows
+    }
+    scores.insert(0, entry)
+    if len(scores) > max_saved_scores:
+        scores = scores[:max_saved_scores]
+
 def reveal_cell_by_index(i, j):
-    global player, modal_active, modal_type
+    global player, modal_active, modal_type, current_rows
     cell = grid[i][j]
     if hasattr(cell, "flagged") and cell.flagged:
         return
     if cell.revealed:
         return
-    cell.revealed = True
+
+    base_points = difficulty_points_map.get(current_rows, 100)
 
     if cell.is_tigre:
+        prev_lives = player.lives
         player.lives -= 1
+        cell.revealed = True
         if player.lives <= 0:
+            partial = int(base_points * (prev_lives / max_lives)) if prev_lives > 0 else 0
             if gameover_sound:
                 gameover_sound.play()
             open_modal("gameover")
+            save_score_and_prepare_name("gameover", partial, f"{current_rows}x{current_rows}", current_rows)
         else:
             if tigre_sound:
                 tigre_sound.play()
     else:
+        cell.revealed = True
         if machete_sound:
             machete_sound.play()
         if cell.neighbors == 0:
@@ -342,6 +395,7 @@ def reveal_cell_by_index(i, j):
                     if 0 <= ni < len(grid) and 0 <= nj < len(grid[0]):
                         if not grid[ni][nj].revealed:
                             reveal_cell_by_index(ni, nj)
+
     won = True
     for row in grid:
         for c in row:
@@ -351,22 +405,17 @@ def reveal_cell_by_index(i, j):
         if not won:
             break
     if won:
+        pts = difficulty_points_map.get(current_rows, 100)
         if victory_sound:
             victory_sound.play()
         open_modal("victory")
+        save_score_and_prepare_name("victory", pts, f"{current_rows}x{current_rows}", current_rows)
 
 def open_modal(kind):
     global modal_active, modal_type, modal_buttons
     modal_active = True
     modal_type = kind
-
-    mw, mh = SCREEN_WIDTH * 0.7, SCREEN_HEIGHT * 0.45
-    mx, my = (SCREEN_WIDTH - mw)//2, (SCREEN_HEIGHT - mh)//2
-
-    btn_y = int(my + mh - 70)
-    b1 = Button("Salir", (int(mx + mw/2 - 80), btn_y), size=(120,45))
-    b2 = Button("Reintentar", (int(mx + mw/2 + 80), btn_y), size=(150,45))
-    modal_buttons = [b1, b2]
+    modal_buttons = []
 
 def close_modal_to_menu():
     global modal_active, modal_type, state
@@ -381,29 +430,70 @@ def close_modal_to_difficulty():
     state = DIFFICULTY
 
 def draw_modal(surf):
-    mw, mh = SCREEN_WIDTH * 0.7, SCREEN_HEIGHT * 0.45
+    global name_input_active, name_input_str, pending_score, pending_result, pending_difficulty_label, modal_buttons
+    if name_input_active:
+        mw, mh = SCREEN_WIDTH * 0.82, SCREEN_HEIGHT * 0.62
+    else:
+        mw, mh = SCREEN_WIDTH * 0.7, SCREEN_HEIGHT * 0.45
     mx, my = (SCREEN_WIDTH - mw)//2, (SCREEN_HEIGHT - mh)//2
     overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-    overlay.fill((0,0,0,160))
+    overlay.fill((0,0,0,180))
     surf.blit(overlay, (0,0))
     pygame.draw.rect(surf, (40,40,40), (mx, my, mw, mh), border_radius=14)
     pygame.draw.rect(surf, WHITE, (mx, my, mw, mh), 2, border_radius=14)
 
-    title_y = my + 30
-    sub_y = my + 110
+    title_y = my + 28
     if modal_type == "gameover":
         title = bigfont.render("Perdiste", True, WHITE)
         surf.blit(title, (mx + mw/2 - title.get_width()//2, title_y))
         sub = font.render("Has perdido todas tus vidas.", True, WHITE)
-        surf.blit(sub, (mx + mw/2 - sub.get_width()//2, sub_y))
+        surf.blit(sub, (mx + mw/2 - sub.get_width()//2, title_y + 68))
     elif modal_type == "victory":
         title = bigfont.render("¡Felicidades!", True, WHITE)
         surf.blit(title, (mx + mw/2 - title.get_width()//2, title_y))
         sub = font.render("Has superado el tablero.", True, WHITE)
-        surf.blit(sub, (mx + mw/2 - sub.get_width()//2, sub_y))
+        surf.blit(sub, (mx + mw/2 - sub.get_width()//2, title_y + 68))
+
+    content_top = title_y + 120
+    if modal_type in ("gameover", "victory") and name_input_active:
+        prompt = font.render("Ingresa tu nombre y dale Enter:", True, WHITE)
+        surf.blit(prompt, (mx + 30, content_top))
+        ibox = pygame.Rect(mx + 30, content_top + 48, int(mw - 60), 56)
+        pygame.draw.rect(surf, WHITE, ibox, border_radius=8)
+        txt = font.render(name_input_str or "_", True, BLACK)
+        surf.blit(txt, (ibox.x + 12, ibox.y + 12))
+        score_txt = font.render(f"Puntos obtenidos: {pending_score} ({pending_difficulty_label})", True, WHITE)
+        surf.blit(score_txt, (mx + 30, content_top + 130))
+
+    
+    btn_y = int(my + mh - 64)
+    left_center = (mx + int(mw*0.28), btn_y)   
+    right_center = (mx + int(mw*0.72), btn_y)  
+    b1 = Button("Salir", left_center, size=(120,40))
+    b2 = Button("Reintentar", right_center, size=(140,50))
+    modal_buttons = [b1, b2]
 
     for b in modal_buttons:
         b.draw(surf)
+
+def restore_menu_size():
+    # restaurar la ventana/recursos al estado original de menú
+    global SCREEN_WIDTH, SCREEN_HEIGHT, screen, fondo_img, titulo_img, game_resized
+    try:
+        SCREEN_WIDTH, SCREEN_HEIGHT = MENU_SCREEN
+        screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        # recargar / reescalar images si existen en disco
+        if os.path.exists("assets/images/fondo.jpg"):
+            tmp = pygame.image.load("assets/images/fondo.jpg").convert()
+            tmp = pygame.transform.scale(tmp, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            fondo_img = tmp
+        if os.path.exists("assets/images/titulo.png"):
+            tmp = pygame.image.load("assets/images/titulo.png").convert_alpha()
+            tmp = pygame.transform.scale(tmp, (400,150))
+            titulo_img = tmp
+    except Exception:
+        pass
+    game_resized = False
 
 def draw_title():
     if titulo_img:
@@ -420,12 +510,51 @@ def main_menu():
     else:
         screen.fill(GREEN)
     draw_title()
-    play_btn = Button("Jugar", (SCREEN_WIDTH//2, 260))
-    opt_btn  = Button("Opciones", (SCREEN_WIDTH//2, 360))
-    exit_btn = Button("Salir", (SCREEN_WIDTH//2, 460))
-    for b in [play_btn, opt_btn, exit_btn]:
+    play_btn = Button("Jugar", (SCREEN_WIDTH//2, 240))
+    scores_btn = Button("Puntuaciones", (SCREEN_WIDTH//2, 320))
+    opt_btn  = Button("Opciones", (SCREEN_WIDTH//2, 400))
+    exit_btn = Button("Salir", (SCREEN_WIDTH//2, 480))
+    for b in [play_btn, scores_btn, opt_btn, exit_btn]:
         b.draw(screen)
-    return play_btn, opt_btn, exit_btn
+    return play_btn, scores_btn, opt_btn, exit_btn
+
+def scores_menu(selected_filter_rows=None):
+    if fondo_img:
+        screen.blit(pygame.transform.scale(fondo_img, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0,0))
+    else:
+        screen.fill((30,60,30))
+    title = bigfont.render("Puntuaciones", True, WHITE)
+    screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 20))
+
+    easy = Button("Fácil (8x8)", (SCREEN_WIDTH//2 - 220, 120), size=(180,50))
+    med  = Button("Normal (12x12)", (SCREEN_WIDTH//2, 120), size=(180,50))
+    hard = Button("Difícil (16x16)", (SCREEN_WIDTH//2 + 220, 120), size=(180,50))
+    back = Button("Volver", (100, SCREEN_HEIGHT - 60), size=(160,50))
+
+    for b in [easy, med, hard, back]:
+        b.draw(screen)
+
+    sx = 80
+    sy = 200
+    if selected_filter_rows is None:
+        info = font.render("Selecciona una dificultad para ver su tabla.", True, WHITE)
+        screen.blit(info, (sx, sy))
+        sy += 36
+        filt = scores
+    else:
+        info = font.render(f"Tabla - {selected_filter_rows}x{selected_filter_rows}", True, WHITE)
+        screen.blit(info, (sx, sy))
+        sy += 36
+        filt = [s for s in scores if s.get('difficulty_rows') == selected_filter_rows]
+
+    filt_sorted = sorted(filt, key=lambda e: e['score'], reverse=True)
+    max_show = 12
+    for i, e in enumerate(filt_sorted[:max_show]):
+        txt = font.render(f"{i+1}. {e['name'][:18]:18s} {e['score']:5d} pts  {e['result']:8s}", True, WHITE)
+        screen.blit(txt, (sx, sy))
+        sy += 30
+
+    return easy, med, hard, back
 
 def options_menu():
     if fondo_img:
@@ -473,12 +602,15 @@ def difficulty_menu():
     return easy, med, hard, back
 
 def start_game_with(rows_in, cols_in, tigre_num):
-    global SCREEN_WIDTH, SCREEN_HEIGHT, screen, cell_size, player, rows, cols, tigre_count, fondo_img, titulo_img
+    global SCREEN_WIDTH, SCREEN_HEIGHT, screen, cell_size, player, rows, cols, tigre_count, fondo_img, titulo_img, current_rows, game_resized
     rows = rows_in; cols = cols_in; tigre_count = tigre_num
+    current_rows = rows_in
     new_w, new_h, csize = compute_layout_for(rows, cols)
     cell_size = csize
     SCREEN_WIDTH, SCREEN_HEIGHT = new_w, new_h
+    # cambiar el tamaño de la ventana para el juego (se mantendrá hasta que volvamos al menú)
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    game_resized = True
 
     try:
         if os.path.exists("assets/images/fondo.jpg"):
@@ -495,7 +627,7 @@ def start_game_with(rows_in, cols_in, tigre_num):
     try:
         if os.path.exists("assets/images/titulo.png"):
             tmp = pygame.image.load("assets/images/titulo.png").convert_alpha()
-            tmp = pygame.transform.scale(tmp, (500,150))
+            tmp = pygame.transform.scale(tmp, (400,150))
             titulo_img = tmp
     except:
         titulo_img = None
@@ -513,7 +645,7 @@ player = Player(SCREEN_WIDTH//2, 100)
 clock = pygame.time.Clock()
 running = True
 
-play_btn = opt_btn = exit_btn = None
+play_btn = scores_btn = opt_btn = exit_btn = None
 toggle_btn = back_btn = None
 easy_btn = med_btn = hard_btn = None
 
@@ -523,11 +655,16 @@ tigre_slider    = Slider(300, 350, value=1.0)
 gameover_slider = Slider(300, 400, value=1.0)
 victory_slider  = Slider(300, 450, value=1.0)
 
+scores_selected_filter = None
+
+prev_state = state
+
 while running:
     dt = clock.tick(60) / 1000.0
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
+            scores = []
             running = False
 
         if state == MENU:
@@ -535,10 +672,28 @@ while running:
                 mx,my = event.pos
                 if play_btn and play_btn.is_clicked((mx,my)):
                     state = DIFFICULTY
+                elif scores_btn and scores_btn.is_clicked((mx,my)):
+                    state = SCORES
+                    scores_selected_filter = None
                 elif opt_btn and opt_btn.is_clicked((mx,my)):
                     state = OPTIONS
                 elif exit_btn and exit_btn.is_clicked((mx,my)):
+                    scores = []
                     running = False
+
+        elif state == SCORES:
+            easy_b, med_b, hard_b, back_b = scores_menu(scores_selected_filter)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mx,my = event.pos
+                if easy_b.is_clicked((mx,my)):
+                    scores_selected_filter = 8
+                elif med_b.is_clicked((mx,my)):
+                    scores_selected_filter = 12
+                elif hard_b.is_clicked((mx,my)):
+                    scores_selected_filter = 16
+                elif back_b.is_clicked((mx,my)):
+                    state = MENU
+                    scores_selected_filter = None
 
         elif state == OPTIONS:
             music_slider.handle_event(event)
@@ -569,7 +724,7 @@ while running:
                 elif med_btn and med_btn.is_clicked((mx,my)):
                     start_game_with(12,12,20); state = GAME
                 elif hard_btn and hard_btn.is_clicked((mx,my)):
-                    start_game_with(16,16,30); state = GAME
+                    start_game_with(16,16,40); state = GAME
                 elif back_btn and back_btn.is_clicked((mx,my)):
                     state = MENU
 
@@ -577,10 +732,21 @@ while running:
             if modal_active:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     mx,my = event.pos
-                    if modal_buttons[0].is_clicked((mx,my)):
+                    if modal_buttons and modal_buttons[0].is_clicked((mx,my)):
                         close_modal_to_menu()
-                    elif modal_buttons[1].is_clicked((mx,my)):
+                    elif modal_buttons and modal_buttons[1].is_clicked((mx,my)):
                         close_modal_to_difficulty()
+                if name_input_active and event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_BACKSPACE:
+                        name_input_str = name_input_str[:-1]
+                    elif event.key == pygame.K_RETURN:
+                        name = name_input_str.strip() or "Anónimo"
+                        award_score_entry(name, pending_score, pending_result, pending_difficulty_label, pending_difficulty_rows)
+                        name_input_active = False
+                    else:
+                        ch = event.unicode
+                        if ch.isprintable() and len(name_input_str) < 20:
+                            name_input_str += ch
             else:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     mx,my = event.pos
@@ -601,6 +767,12 @@ while running:
                     if event.key == pygame.K_r:
                         state = MENU
 
+    # detectar transición de estado: si volvimos al menu/dificultad y la ventana estaba en modo juego, restaurarla
+    if game_resized and state in (MENU, DIFFICULTY, SCORES, OPTIONS) and prev_state == GAME:
+        restore_menu_size()
+
+    prev_state = state
+
     if state == GAME and not modal_active:
         player.update(dt)
 
@@ -614,7 +786,10 @@ while running:
     if victory_sound: victory_sound.set_volume(victory_slider.value)
 
     if state == MENU:
-        play_btn, opt_btn, exit_btn = main_menu()
+        play_btn, scores_btn, opt_btn, exit_btn = main_menu()
+
+    elif state == SCORES:
+        easy_btn, med_btn, hard_btn, back_btn = scores_menu(scores_selected_filter)
 
     elif state == OPTIONS:
         toggle_btn, back_btn = options_menu()
