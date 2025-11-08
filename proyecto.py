@@ -461,7 +461,7 @@ def draw_modal(surf):
 
     content_top = title_y + 120
     if modal_type in ("gameover", "victory") and name_input_active:
-        prompt = font.render("Ingresa tu nombre y presiona Enter:", True, WHITE)
+        prompt = font.render("Ingresa tu nombre y dale Enter:", True, WHITE)
         surf.blit(prompt, (mx + 30, content_top))
         ibox = pygame.Rect(mx + 30, content_top + 48, int(mw - 60), 56)
         pygame.draw.rect(surf, WHITE, ibox, border_radius=8)
