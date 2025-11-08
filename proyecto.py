@@ -1,12 +1,19 @@
 import pygame, sys, random, math, os
 
+def resource_path(rel):
+    """Devuelve ruta absoluta del recurso (soporta PyInstaller)."""
+    if hasattr(sys, "_MEIPASS"):
+        base = sys._MEIPASS
+    else:
+        base = os.path.abspath(".")
+    return os.path.join(base, rel)
+
 pygame.init()
 
-# Tamaño del menú / valor original
 MENU_SCREEN = (900, 700)
 
 SCREEN_MAX_W, SCREEN_MAX_H = 1366, 768
-SCREEN_WIDTH, SCREEN_HEIGHT = MENU_SCREEN  # empezamos con el tamaño de menú
+SCREEN_WIDTH, SCREEN_HEIGHT = MENU_SCREEN 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Selva Mortal")
 
@@ -18,82 +25,72 @@ BLACK = (0,0,0)
 font = pygame.font.SysFont(None, 36)
 bigfont = pygame.font.SysFont(None, 72)
 
-try:
-    fondo_img = pygame.image.load("assets/images/fondo.jpg").convert()
-    fondo_img = pygame.transform.scale(fondo_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
-except:
-    fondo_img = None
+def try_load_image(path, alpha=True):
+    try:
+        full = resource_path(path)
+        img = pygame.image.load(full)
+        return img.convert_alpha() if alpha else img.convert()
+    except Exception as e:
+        print(f"[Aviso imagen] {path} no encontrado ({e})")
+        return None
 
-try:
-    titulo_img = pygame.image.load("assets/images/titulo.png").convert_alpha()
-    titulo_img = pygame.transform.scale(titulo_img, (400, 150))
-except:
-    titulo_img = None
+def try_scale(img, size):
+    try:
+        return pygame.transform.smoothscale(img, size)
+    except Exception:
+        try:
+            return pygame.transform.scale(img, size)
+        except Exception:
+            return None
 
-try:
-    boton_img = pygame.image.load("assets/images/boton.png").convert_alpha()
-except:
-    boton_img = None
+fondo_img = try_load_image("assets/images/fondo.jpg", alpha=False)
+titulo_img = try_load_image("assets/images/titulo.png", alpha=True)
+boton_img = try_load_image("assets/images/boton.png", alpha=True)
 
 personaje_frames = []
 for i in range(1, 3):
-    try:
-        img = pygame.image.load(f"assets/images/personaje{i}.png").convert_alpha()
-        personaje_frames.append(pygame.transform.scale(img, (60, 60)))
-    except:
+    img = try_load_image(f"assets/images/personaje{i}.png", alpha=True)
+    if img:
+        personaje_frames.append(img)
+    else:
         personaje_frames.append(None)
-
 personaje_frames_valid = [f for f in personaje_frames if f is not None]
 
-try:
-    tigre_img = pygame.image.load("assets/images/tigre.png").convert_alpha()
-    tigre_img = pygame.transform.scale(tigre_img, (60, 60))
-except:
-    tigre_img = None
+tigre_img = try_load_image("assets/images/tigre.png", alpha=True)
+arbusto_img = try_load_image("assets/images/arbusto.jpg", alpha=True)
+bandera_img = try_load_image("assets/images/bandera.png", alpha=True)
 
-try:
-    arbusto_img = pygame.image.load("assets/images/arbusto.jpg").convert_alpha()
-    arbusto_img = pygame.transform.scale(arbusto_img, (60, 60))
-except:
-    arbusto_img = None
-
-try:
-    bandera_img = pygame.image.load("assets/images/bandera.png").convert_alpha()
-except:
-    bandera_img = None
-
-try:
-    pygame.mixer.init()
-except:
-    pass
-
-try:
-    pygame.mixer.music.load("assets/sounds/fondo.mp3")
-    pygame.mixer.music.play(-1)
-except:
-    print("[Aviso] No se encontró música de fondo.")
 
 def load_sound(path):
     try:
-        return pygame.mixer.Sound(path)
-    except:
-        print(f"[Aviso] No se pudo cargar {path}")
+        full = resource_path(path)
+        return pygame.mixer.Sound(full)
+    except Exception as e:
+        print(f"[Aviso sonido] {path} no encontrado ({e})")
         return None
+
+try:
+    pygame.mixer.init()
+except Exception:
+    pass
+
+try:
+    pygame.mixer.music.load(resource_path("assets/sounds/fondo.mp3"))
+    pygame.mixer.music.play(-1)
+except Exception:
+    print("[Aviso] No se encontró música de fondo.")
 
 machete_sound  = load_sound("assets/sounds/machete.mp3")
 tigre_sound    = load_sound("assets/sounds/rugido_tigre.mp3")
 gameover_sound = load_sound("assets/sounds/gameover.mp3")
 victory_sound  = load_sound("assets/sounds/victory.mp3")
 
+
 scores = []
 max_saved_scores = 200
-
-difficulty_points_map = {
-    8: 100,
-    12: 250,
-    16: 500
-}
+difficulty_points_map = {8: 100, 12: 250, 16: 500}
 max_lives = 3
+
 
 name_input_active = False
 name_input_str = ""
@@ -102,10 +99,10 @@ pending_result = None
 pending_difficulty_label = ""
 pending_difficulty_rows = 8
 
+
 MENU, OPTIONS, DIFFICULTY, GAME, SCORES = 0,1,2,3,4
 state = MENU
 
-# bandera para saber si ya cambiamos el tamaño al modo 'game'
 game_resized = False
 
 class Button:
@@ -119,8 +116,11 @@ class Button:
 
     def draw(self, surf):
         if boton_img:
-            img = pygame.transform.scale(boton_img, self.size)
-            surf.blit(img, self.rect)
+            img = try_scale(boton_img, self.size)
+            if img:
+                surf.blit(img, self.rect)
+            else:
+                pygame.draw.rect(surf, self.color, self.rect, border_radius=self.radius)
         else:
             pygame.draw.rect(surf, self.color, self.rect, border_radius=self.radius)
         txt = font.render(self.text, True, BLACK)
@@ -146,20 +146,20 @@ class Cell:
         if not self.revealed:
             if self.flagged:
                 if arbusto_img:
-                    try:
-                        arb = pygame.transform.scale(arbusto_img, (self.size, self.size))
+                    arb = try_scale(arbusto_img, (self.size, self.size))
+                    if arb:
                         surf.blit(arb, (self.x, self.y))
-                    except:
+                    else:
                         pygame.draw.rect(surf, GREEN, rect)
                 else:
                     pygame.draw.rect(surf, GREEN, rect)
                 if bandera_img:
-                    try:
-                        flag_img = pygame.transform.scale(bandera_img, (int(self.size*0.6), int(self.size*0.6)))
+                    flag_img = try_scale(bandera_img, (int(self.size*0.6), int(self.size*0.6)))
+                    if flag_img:
                         fx = self.x + (self.size - flag_img.get_width())//2
                         fy = self.y + (self.size - flag_img.get_height())//2
                         surf.blit(flag_img, (fx, fy))
-                    except:
+                    else:
                         p1 = (self.x + int(self.size * 0.2), self.y + int(self.size * 0.8))
                         p2 = (self.x + int(self.size * 0.2), self.y + int(self.size * 0.2))
                         p3 = (self.x + int(self.size * 0.7), self.y + int(self.size * 0.5))
@@ -171,10 +171,10 @@ class Cell:
                     pygame.draw.polygon(surf, (220,20,60), [p1, p2, p3])
             else:
                 if arbusto_img:
-                    try:
-                        arb = pygame.transform.scale(arbusto_img, (self.size, self.size))
+                    arb = try_scale(arbusto_img, (self.size, self.size))
+                    if arb:
                         surf.blit(arb, (self.x, self.y))
-                    except:
+                    else:
                         pygame.draw.rect(surf, GREEN, rect)
                 else:
                     pygame.draw.rect(surf, GREEN, rect)
@@ -182,10 +182,10 @@ class Cell:
         else:
             if self.is_tigre:
                 if tigre_img:
-                    try:
-                        tig = pygame.transform.scale(tigre_img, (self.size, self.size))
+                    tig = try_scale(tigre_img, (self.size, self.size))
+                    if tig:
                         surf.blit(tig, (self.x, self.y))
-                    except:
+                    else:
                         pygame.draw.rect(surf, RED, rect)
                 else:
                     pygame.draw.rect(surf, RED, rect)
@@ -246,9 +246,12 @@ class Player:
             frame = personaje_frames_valid[idx]
         if frame:
             size = max(8, int(cell_size * 0.8))
-            img = pygame.transform.scale(frame, (size, size))
-            rect = img.get_rect(center=(int(self.x), int(self.y)))
-            surf.blit(img, rect)
+            img = try_scale(frame, (size, size))
+            if img:
+                rect = img.get_rect(center=(int(self.x), int(self.y)))
+                surf.blit(img, rect)
+            else:
+                pygame.draw.circle(surf, (255,200,0), (int(self.x), int(self.y)), max(8, int(cell_size*0.3)))
         else:
             pygame.draw.circle(surf, (255,200,0), (int(self.x), int(self.y)), max(8, int(cell_size*0.3)))
 
@@ -422,12 +425,14 @@ def close_modal_to_menu():
     modal_active = False
     modal_type = None
     state = MENU
+    restore_menu_size()
 
 def close_modal_to_difficulty():
     global modal_active, modal_type, state
     modal_active = False
     modal_type = None
     state = DIFFICULTY
+    restore_menu_size()
 
 def draw_modal(surf):
     global name_input_active, name_input_str, pending_score, pending_result, pending_difficulty_label, modal_buttons
@@ -456,7 +461,7 @@ def draw_modal(surf):
 
     content_top = title_y + 120
     if modal_type in ("gameover", "victory") and name_input_active:
-        prompt = font.render("Ingresa tu nombre y dale Enter:", True, WHITE)
+        prompt = font.render("Ingresa tu nombre y presiona Enter:", True, WHITE)
         surf.blit(prompt, (mx + 30, content_top))
         ibox = pygame.Rect(mx + 30, content_top + 48, int(mw - 60), 56)
         pygame.draw.rect(surf, WHITE, ibox, border_radius=8)
@@ -465,10 +470,9 @@ def draw_modal(surf):
         score_txt = font.render(f"Puntos obtenidos: {pending_score} ({pending_difficulty_label})", True, WHITE)
         surf.blit(score_txt, (mx + 30, content_top + 130))
 
-    
     btn_y = int(my + mh - 64)
-    left_center = (mx + int(mw*0.28), btn_y)   
-    right_center = (mx + int(mw*0.72), btn_y)  
+    left_center = (mx + int(mw*0.28), btn_y)
+    right_center = (mx + int(mw*0.72), btn_y)
     b1 = Button("Salir", left_center, size=(120,40))
     b2 = Button("Reintentar", right_center, size=(140,50))
     modal_buttons = [b1, b2]
@@ -477,18 +481,19 @@ def draw_modal(surf):
         b.draw(surf)
 
 def restore_menu_size():
-    # restaurar la ventana/recursos al estado original de menú
+
     global SCREEN_WIDTH, SCREEN_HEIGHT, screen, fondo_img, titulo_img, game_resized
     try:
         SCREEN_WIDTH, SCREEN_HEIGHT = MENU_SCREEN
         screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        # recargar / reescalar images si existen en disco
-        if os.path.exists("assets/images/fondo.jpg"):
-            tmp = pygame.image.load("assets/images/fondo.jpg").convert()
+        fpath = resource_path("assets/images/fondo.jpg")
+        if os.path.exists(fpath):
+            tmp = pygame.image.load(fpath).convert()
             tmp = pygame.transform.scale(tmp, (SCREEN_WIDTH, SCREEN_HEIGHT))
             fondo_img = tmp
-        if os.path.exists("assets/images/titulo.png"):
-            tmp = pygame.image.load("assets/images/titulo.png").convert_alpha()
+        tpath = resource_path("assets/images/titulo.png")
+        if os.path.exists(tpath):
+            tmp = pygame.image.load(tpath).convert_alpha()
             tmp = pygame.transform.scale(tmp, (400,150))
             titulo_img = tmp
     except Exception:
@@ -497,16 +502,29 @@ def restore_menu_size():
 
 def draw_title():
     if titulo_img:
-        w = min(titulo_img.get_width(), SCREEN_WIDTH - 40)
-        img = pygame.transform.scale(titulo_img, (w, int(w * titulo_img.get_height()/titulo_img.get_width())))
-        screen.blit(img, (SCREEN_WIDTH//2 - img.get_width()//2, 10))
-    else:
-        t = bigfont.render("Selva Mortal", True, WHITE)
-        screen.blit(t, (SCREEN_WIDTH//2 - t.get_width()//2, 10))
+        max_w = min(500, SCREEN_WIDTH - 40)
+        max_h = 150
+        ow, oh = titulo_img.get_width(), titulo_img.get_height()
+        if ow == 0 or oh == 0:
+            t = bigfont.render("Selva Mortal", True, WHITE)
+            screen.blit(t, (SCREEN_WIDTH//2 - t.get_width()//2, 10))
+            return
+        scale = min(max_w / ow, max_h / oh, 1.0)
+        nw, nh = int(ow * scale), int(oh * scale)
+        img = try_scale(titulo_img, (nw, nh))
+        if img:
+            screen.blit(img, (SCREEN_WIDTH//2 - img.get_width()//2, 10))
+            return
+    t = bigfont.render("Selva Mortal", True, WHITE)
+    screen.blit(t, (SCREEN_WIDTH//2 - t.get_width()//2, 10))
 
 def main_menu():
     if fondo_img:
-        screen.blit(pygame.transform.scale(fondo_img, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0,0))
+        scaled_bg = try_scale(fondo_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        if scaled_bg:
+            screen.blit(scaled_bg, (0,0))
+        else:
+            screen.fill(GREEN)
     else:
         screen.fill(GREEN)
     draw_title()
@@ -520,7 +538,11 @@ def main_menu():
 
 def scores_menu(selected_filter_rows=None):
     if fondo_img:
-        screen.blit(pygame.transform.scale(fondo_img, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0,0))
+        scaled_bg = try_scale(fondo_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        if scaled_bg:
+            screen.blit(scaled_bg, (0,0))
+        else:
+            screen.fill((30,60,30))
     else:
         screen.fill((30,60,30))
     title = bigfont.render("Puntuaciones", True, WHITE)
@@ -558,10 +580,13 @@ def scores_menu(selected_filter_rows=None):
 
 def options_menu():
     if fondo_img:
-        screen.blit(pygame.transform.scale(fondo_img, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0,0))
+        scaled_bg = try_scale(fondo_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        if scaled_bg:
+            screen.blit(scaled_bg, (0,0))
+        else:
+            screen.fill(GREEN)
     else:
         screen.fill(GREEN)
-
     draw_title()
     txt = font.render("Opciones", True, WHITE)
     screen.blit(txt, (40, 150))
@@ -588,7 +613,11 @@ def options_menu():
 
 def difficulty_menu():
     if fondo_img:
-        screen.blit(pygame.transform.scale(fondo_img, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0,0))
+        scaled_bg = try_scale(fondo_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        if scaled_bg:
+            screen.blit(scaled_bg, (0,0))
+        else:
+            screen.fill(GREEN)
     else:
         screen.fill(GREEN)
     draw_title()
@@ -608,26 +637,27 @@ def start_game_with(rows_in, cols_in, tigre_num):
     new_w, new_h, csize = compute_layout_for(rows, cols)
     cell_size = csize
     SCREEN_WIDTH, SCREEN_HEIGHT = new_w, new_h
-    # cambiar el tamaño de la ventana para el juego (se mantendrá hasta que volvamos al menú)
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     game_resized = True
-
+    
+    fpath_jpg = resource_path("assets/images/fondo.jpg")
+    fpath_png = resource_path("assets/images/fondo.png")
     try:
-        if os.path.exists("assets/images/fondo.jpg"):
-            tmp = pygame.image.load("assets/images/fondo.jpg").convert()
+        if os.path.exists(fpath_jpg):
+            tmp = pygame.image.load(fpath_jpg).convert()
             tmp = pygame.transform.scale(tmp, (SCREEN_WIDTH, SCREEN_HEIGHT))
             fondo_img = tmp
-        elif os.path.exists("assets/images/fondo.png"):
-            tmp = pygame.image.load("assets/images/fondo.png").convert()
+        elif os.path.exists(fpath_png):
+            tmp = pygame.image.load(fpath_png).convert()
             tmp = pygame.transform.scale(tmp, (SCREEN_WIDTH, SCREEN_HEIGHT))
             fondo_img = tmp
     except:
         fondo_img = None
 
+    tpath = resource_path("assets/images/titulo.png")
     try:
-        if os.path.exists("assets/images/titulo.png"):
-            tmp = pygame.image.load("assets/images/titulo.png").convert_alpha()
-            tmp = pygame.transform.scale(tmp, (400,150))
+        if os.path.exists(tpath):
+            tmp = pygame.image.load(tpath).convert_alpha()
             titulo_img = tmp
     except:
         titulo_img = None
@@ -656,7 +686,6 @@ gameover_slider = Slider(300, 400, value=1.0)
 victory_slider  = Slider(300, 450, value=1.0)
 
 scores_selected_filter = None
-
 prev_state = state
 
 while running:
@@ -743,6 +772,10 @@ while running:
                         name = name_input_str.strip() or "Anónimo"
                         award_score_entry(name, pending_score, pending_result, pending_difficulty_label, pending_difficulty_rows)
                         name_input_active = False
+                        modal_active = False
+                        modal_type = None
+                        restore_menu_size()
+                        state = MENU
                     else:
                         ch = event.unicode
                         if ch.isprintable() and len(name_input_str) < 20:
@@ -766,8 +799,6 @@ while running:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_r:
                         state = MENU
-
-    # detectar transición de estado: si volvimos al menu/dificultad y la ventana estaba en modo juego, restaurarla
     if game_resized and state in (MENU, DIFFICULTY, SCORES, OPTIONS) and prev_state == GAME:
         restore_menu_size()
 
@@ -799,7 +830,11 @@ while running:
 
     elif state == GAME:
         if fondo_img:
-            screen.blit(pygame.transform.scale(fondo_img, (SCREEN_WIDTH, SCREEN_HEIGHT)), (0,0))
+            scaled_bg = try_scale(fondo_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            if scaled_bg:
+                screen.blit(scaled_bg, (0,0))
+            else:
+                screen.fill(GREEN)
         else:
             screen.fill(GREEN)
         draw_title()
