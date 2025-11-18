@@ -1,7 +1,6 @@
 import pygame, sys, random, math, os
 
 def resource_path(rel):
-    """Devuelve ruta absoluta del recurso (soporta PyInstaller)."""
     if hasattr(sys, "_MEIPASS"):
         base = sys._MEIPASS
     else:
@@ -60,7 +59,6 @@ tigre_img = try_load_image("assets/images/tigre.png", alpha=True)
 arbusto_img = try_load_image("assets/images/arbusto.jpg", alpha=True)
 bandera_img = try_load_image("assets/images/bandera.png", alpha=True)
 
-
 def load_sound(path):
     try:
         full = resource_path(path)
@@ -85,12 +83,10 @@ tigre_sound    = load_sound("assets/sounds/rugido_tigre.mp3")
 gameover_sound = load_sound("assets/sounds/gameover.mp3")
 victory_sound  = load_sound("assets/sounds/victory.mp3")
 
-
 scores = []
 max_saved_scores = 200
 difficulty_points_map = {8: 100, 12: 250, 16: 500}
 max_lives = 3
-
 
 name_input_active = False
 name_input_str = ""
@@ -98,7 +94,6 @@ pending_score = 0
 pending_result = None
 pending_difficulty_label = ""
 pending_difficulty_rows = 8
-
 
 MENU, OPTIONS, DIFFICULTY, GAME, SCORES = 0,1,2,3,4
 state = MENU
@@ -481,7 +476,6 @@ def draw_modal(surf):
         b.draw(surf)
 
 def restore_menu_size():
-
     global SCREEN_WIDTH, SCREEN_HEIGHT, screen, fondo_img, titulo_img, game_resized
     try:
         SCREEN_WIDTH, SCREEN_HEIGHT = MENU_SCREEN
@@ -772,10 +766,6 @@ while running:
                         name = name_input_str.strip() or "Anónimo"
                         award_score_entry(name, pending_score, pending_result, pending_difficulty_label, pending_difficulty_rows)
                         name_input_active = False
-                        modal_active = False
-                        modal_type = None
-                        restore_menu_size()
-                        state = MENU
                     else:
                         ch = event.unicode
                         if ch.isprintable() and len(name_input_str) < 20:
